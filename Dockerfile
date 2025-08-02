@@ -1,36 +1,33 @@
-# Build stage
-FROM node:20-alpine AS builder
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-RUN npm ci --only=production
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
+# Copy application code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Create necessary directories
+RUN mkdir -p src/database src/static
 
-# Production stage
-FROM nginx:alpine
-
-# Copy built files to nginx
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Set environment variables
+ENV FLASK_ENV=production
+ENV PYTHONPATH=/app
 
 # Expose port
-EXPOSE 80
+EXPOSE 5000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/ || exit 1
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/api/orders || exit 1
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Run the application
+CMD ["python", "-m", "src.main"]
 
