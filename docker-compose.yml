@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./easysell-backend
+    container_name: easysell-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - SHOPIFY_STORE_URL=${SHOPIFY_STORE_URL:-selenastor.myshopify.com}
+      - SHOPIFY_API_VERSION=${SHOPIFY_API_VERSION:-2024-01}
+      - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN:-your-shopify-token}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-your-twilio-sid}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-your-twilio-token}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-+2126xxxxxxx}
+      - GOOGLE_SHEETS_CLIENT_EMAIL=${GOOGLE_SHEETS_CLIENT_EMAIL:-your-service-account-email}
+      - GOOGLE_SHEETS_PRIVATE_KEY=${GOOGLE_SHEETS_PRIVATE_KEY:-your-private-key}
+      - GOOGLE_SHEETS_SPREADSHEET_ID=${GOOGLE_SHEETS_SPREADSHEET_ID:-your-spreadsheet-id}
+    volumes:
+      - ./easysell-backend/src/database:/app/src/database
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/orders"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build: ./easysell-app
+    container_name: easysell-frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_BACKEND_API_URL=http://localhost:5000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: easysell-network
+
